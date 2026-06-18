@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How well do you know Luisa?</title>
+
+<!--
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  SETUP (≈5 min) - do this once before sharing the link                │
+  ├─────────────────────────────────────────────────────────────────────┤
+  │  1. Create a free project at https://supabase.com                     │
+  │  2. Open the project's SQL editor and run this:                       │
+  │                                                                       │
+  │     create table if not exists responses (                            │
+  │       player_id text primary key,                                     │
+  │       name text not null,                                             │
+  │       answers jsonb not null default '[]',                            │
+  │       updated_at timestamptz default now()                            │
+  │     );                                                                │
+  │     create table if not exists game (                                 │
+  │       id text primary key,                                            │
+  │       current_q int not null default -1                               │
+  │     );                                                                │
+  │     insert into game (id, current_q) values ('main', -1)              │
+  │       on conflict (id) do nothing;                                    │
+  │     alter table responses enable row level security;                  │
+  │     alter table game enable row level security;                       │
+  │     create policy "open responses" on responses                       │
+  │       for all to anon using (true) with check (true);                 │
+  │     create policy "open game" on game                                 │
+  │       for all to anon using (true) with check (true);                 │
+  │                                                                       │
+  │  3. Project Settings → API: copy the Project URL and the anon key     │
+  │     into SUPABASE_URL / SUPABASE_ANON_KEY just below.                 │
+  │  4. Drag this file onto https://app.netlify.com/drop → share the URL. │
+  │     Players open the link; YOU open <link>?host on your screen.       │
+  │                                                                       │
+  │  Note: the anon key is public - anyone with the link can read/write   │
+  │  this little table. Fine for a one-off; delete the project after.     │
+  │                                                                       │
+  │  Leave the keys blank to play in DEMO mode (data stays in this        │
+  │  browser; open ?host in one tab and players in other tabs to test).   │
+  └─────────────────────────────────────────────────────────────────────┘
+-->
+
+<style>
+  :root{
+    --bg1:#ffd6a5; --bg2:#fda4d6; --bg3:#a78bfa;
+    --ink:#2a1a3a; --muted:#7a6b88; --card:#ffffff;
+    --accent:#7c3aed; --accent2:#db2777; --gold:#f59e0b;
+    --ok:#16a34a; --line:#ece6f3;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+    background-attachment:fixed;
+    min-height:100%;
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+  }
+  #app{width:100%;max-width:680px}
+  .card{
+    background:var(--card);border-radius:24px;
+    box-shadow:0 24px 60px rgba(60,20,80,.22);
+    padding:clamp(22px,4vw,40px);
+  }
+  h1{font-size:clamp(26px,5vw,40px);line-height:1.1;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:16px;margin:0 0 22px}
+  .pill{display:inline-block;background:#f3effb;color:var(--accent);
+    border-radius:999px;padding:5px 14px;font-weight:700;font-size:13px;letter-spacing:.02em}
+  label{display:block;font-weight:600;margin:18px 0 8px}
+  input[type=text]{
+    width:100%;font-size:18px;padding:15px 16px;border:2px solid var(--line);
+    border-radius:14px;outline:none;transition:border-color .15s}
+  input[type=text]:focus{border-color:var(--accent)}
+  button{font-family:inherit;cursor:pointer;border:none;transition:transform .08s ease, filter .15s, background .15s}
+  button:active{transform:translateY(1px)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .btn{
+    width:100%;font-size:19px;font-weight:800;color:#fff;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border-radius:16px;padding:17px;margin-top:22px;
+    box-shadow:0 10px 24px rgba(124,58,237,.35)}
+  .btn.secondary{background:#f1edf7;color:var(--accent);box-shadow:none}
+  .btn:hover:not(:disabled){filter:brightness(1.05)}
+  .qnum{font-weight:800;color:var(--accent);letter-spacing:.08em;font-size:14px;text-transform:uppercase}
+  .qtext{font-size:clamp(22px,4.5vw,34px);font-weight:800;line-height:1.15;margin:6px 0 22px}
+  .opt{
+    display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+    background:#faf8fe;border:2px solid var(--line);border-radius:16px;
+    padding:16px 18px;margin:10px 0;font-size:18px;font-weight:600;color:var(--ink)}
+  .opt:hover{border-color:#d7c8f5}
+  .opt .dot{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:2px solid #cdbfe6;
+    display:grid;place-items:center;font-size:14px;color:#fff;font-weight:800}
+  .opt.sel{border-color:var(--accent);background:#f3eaff}
+  .opt.sel .dot{background:var(--accent);border-color:var(--accent)}
+  .opt .bar{position:absolute;inset:0;background:rgba(124,58,237,.10);border-radius:14px;z-index:0}
+  .opt .tallywrap{position:relative;overflow:hidden}
+  .optdisp{position:relative;overflow:hidden}
+  .optdisp .fill{position:absolute;left:0;top:0;bottom:0;background:rgba(124,58,237,.13);transition:width .4s}
+  .optdisp .lbl{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .count{font-weight:800;color:var(--accent)}
+  .center{text-align:center}
+  .big-emoji{font-size:64px;margin:6px 0 8px}
+  .muted{color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+  .chip{background:#f3effb;border-radius:999px;padding:7px 14px;font-weight:600;font-size:14px}
+  .row{display:flex;gap:12px;align-items:center}
+  .row.between{justify-content:space-between}
+  select{font-family:inherit;font-size:18px;padding:13px 14px;border:2px solid var(--line);
+    border-radius:14px;width:100%;background:#fff}
+  .lead{font-size:22px;font-weight:800;margin:0 0 4px}
+  .statusdot{position:fixed;top:12px;right:14px;font-size:12px;color:#fff;
+    background:rgba(0,0,0,.25);padding:5px 11px;border-radius:999px;font-weight:600}
+  .lb{display:flex;align-items:center;gap:14px;padding:13px 16px;border-radius:16px;margin:9px 0;background:#faf8fe;border:2px solid var(--line)}
+  .lb.win{background:linear-gradient(135deg,#fff7e6,#ffeccc);border-color:var(--gold)}
+  .lb .rank{font-weight:800;width:30px;color:var(--muted)}
+  .lb .nm{font-weight:700;flex:1;font-size:18px}
+  .lb .sc{font-weight:800;color:var(--accent);white-space:nowrap}
+  .lb.win .sc{color:var(--gold)}
+  .scbarwrap{height:8px;background:#ece6f3;border-radius:999px;margin-top:7px;overflow:hidden}
+  .scbar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px;transition:width .6s}
+  .keylist{margin-top:18px;border-top:1px dashed var(--line);padding-top:14px}
+  .keyitem{padding:9px 0;border-bottom:1px solid var(--line)}
+  .keyitem b{color:var(--accent2)}
+  .smalllink{display:inline-block;margin-top:18px;color:var(--accent);font-weight:600;text-decoration:none;font-size:14px;cursor:pointer}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:#2a1a3a;color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;
+    box-shadow:0 10px 30px rgba(0,0,0,.3);z-index:50}
+  .winbanner{font-size:clamp(24px,5vw,38px);font-weight:900;text-align:center;margin:4px 0 20px;line-height:1.2}
+  .winbanner .nm{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="status" class="statusdot" style="display:none"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script>
+  /* ════════════════════════════════════════════════════════════════
+     CONFIG - paste your Supabase keys here (leave blank for demo mode)
+     ════════════════════════════════════════════════════════════════ */
+  const SUPABASE_URL      = "https://oipwzmdctetzrfqwziya.supabase.co";  // verify against your dashboard
+  const SUPABASE_ANON_KEY = "sb_publishable_mgiEmm1shovtaG7WguxMsg_C7HIcKyM";   // paste your Publishable key (sb_publishable_...) here
+
+  const PERSON = "Luisa";         // whose game is this
+
+  /* ── QUESTIONS - edit freely. First option is just option A, order
+        doesn't matter, any number of options per question is fine. ── */
+  const QUESTIONS = [
+    { q: `Let's start light - what's ${PERSON}'s favorite color?`,
+      options: ["Green", "Blue", "Yellow", "None of the above - if you know, you know!"] },
+    { q: `What's the real reason ${PERSON} came to Germany?`,
+      options: ["Master's studies", "Job opportunities", "The German food", "Tokio Hotel"] },
+    { q: `Which GIZ "dining" option does ${PERSON} find most tolerable?`,
+      options: ["Eschborn canteen", "Bonn canteen", "Berlin canteen (Amrit)", "Fasting"] },
+    { q: `What is "overrated nonsense", according to ${PERSON}?`,
+      options: ["Pistachios", "Pineapple", "Bowls", "Democracy"] },
+    { q: `What's ${PERSON}'s favorite temperature?`,
+      options: ["0-10 °C (winter is the best!)", "10-20 °C (balanced - no need for extremes in life!)", "20-30 °C (when Berlin feels like Colombia!)", "30+ °C (sun and heat all the way!)"] },
+    { q: `How hangry does ${PERSON} get?`,
+      options: ["1-3 - not at all", "4-6 - a little snappy", "7-9 - serious danger zone", "10 - Daniel-hangry, don't talk unless she's eaten"] },
+    { q: `What are ${PERSON}'s true feelings about Christmas?`,
+      options: ["An outdated thing no one needs", "Just a distraction from the horror of winter", "Well, everyone likes gifts - it's okay", "The absolute BEST thing!"] },
+    { q: `Not so easy - what's ${PERSON}'s all-time favorite fruit?`,
+      options: ["Pineapple", "Guava", "Coconut", "Passion fruit"] },
+    { q: `The final one - what languages does ${PERSON} speak?`,
+      options: ["English, German, French, Spanish", "English, German, Spanish", "English, German, Spanish, Italian, French", "English, German, Spanish, French, Portuguese, Italian"] },
+  ];
+  /* ════════════════════════════════════════════════════════════════ */
+
+  // ---- storage layer: real Supabase, or a localStorage demo fallback ----
+  const LIVE = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+  const sb = LIVE ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  const Store = LIVE ? {
+    async getGame() {
+      const { data } = await sb.from("game").select("current_q").eq("id","main").maybeSingle();
+      return { current_q: data ? data.current_q : -1 };
+    },
+    async setGame(current_q) {
+      const { error } = await sb.from("game").upsert({ id:"main", current_q });
+      if (error) throw error;
+    },
+    async upsert(row) {
+      const { error } = await sb.from("responses").upsert(row, { onConflict:"player_id" });
+      if (error) throw error;
+    },
+    async list() {
+      const { data, error } = await sb.from("responses").select("*").order("updated_at");
+      if (error) throw error;
+      return data || [];
+    },
+    async clear() {
+      await sb.from("responses").delete().not("player_id","is",null);
+      await sb.from("game").upsert({ id:"main", current_q:-1 });
+    },
+  } : {
+    _resp(){ try { return JSON.parse(localStorage.getItem("kyl_demo")||"{}"); } catch { return {}; } },
+    async getGame(){ try { return JSON.parse(localStorage.getItem("kyl_game")||'{"current_q":-1}'); } catch { return {current_q:-1}; } },
+    async setGame(current_q){ localStorage.setItem("kyl_game", JSON.stringify({current_q})); },
+    async upsert(row){ const all=this._resp(); all[row.player_id]={...row, updated_at:new Date().toISOString()}; localStorage.setItem("kyl_demo", JSON.stringify(all)); },
+    async list(){ return Object.values(this._resp()); },
+    async clear(){ localStorage.removeItem("kyl_demo"); localStorage.setItem("kyl_game", JSON.stringify({current_q:-1})); },
+  };
+
+  // ---- per-tab identity (sessionStorage => each browser tab is its own player) ----
+  const isHost = new URLSearchParams(location.search).has("host");
+  let pid = sessionStorage.getItem("kyl_pid");
+  if (!pid) { pid = crypto.randomUUID(); sessionStorage.setItem("kyl_pid", pid); }
+
+  const N = QUESTIONS.length;
+  const state = {
+    name: sessionStorage.getItem("kyl_name") || "",
+    answers: [],            // this player's picks, answers[i] = option index
+    game: { current_q:-1 },
+    responses: [],
+    sig: null,              // current structural screen signature
+    keyId: null,            // chosen "Luisa" player_id on the results step
+    revealed: false,
+  };
+
+  const app = document.getElementById("app");
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  function toast(msg){
+    const t=document.createElement("div"); t.className="toast"; t.textContent=msg;
+    document.body.appendChild(t); setTimeout(()=>t.remove(), 3000);
+  }
+  function answeredCount(q){ return state.responses.filter(r => r.answers && r.answers[q]!=null).length; }
+
+  // ───────────────────────── render dispatch ─────────────────────────
+  function screenSig(){
+    const q = state.game.current_q;
+    if (isHost){
+      if (state.revealed) return "host-results";
+      if (q < 0)  return "host-lobby";
+      if (q >= N) return "host-finished";
+      return "host-q-" + q;
+    }
+    if (!state.name) return "join";
+    if (q < 0)  return "p-lobby";
+    if (q >= N) return "p-done";
+    return "p-q-" + q;
+  }
+
+  function render(){
+    const sig = screenSig();
+    if (sig !== state.sig){ state.sig = sig; build(sig); }
+    else updateDynamic(sig);
+  }
+
+  function build(sig){
+    if (sig === "join")          return renderJoin();
+    if (sig === "p-lobby")       return renderPlayerLobby();
+    if (sig === "p-done")        return renderPlayerDone();
+    if (sig.startsWith("p-q-"))  return renderPlayerQuestion(state.game.current_q);
+    if (sig === "host-lobby")    return renderHostLobby();
+    if (sig.startsWith("host-q-")) return renderHostQuestion(state.game.current_q);
+    if (sig === "host-finished") return renderHostFinished();
+    if (sig === "host-results")  return renderResults();
+  }
+
+  // live bits that update between full re-renders (counts, tallies, lists)
+  function updateDynamic(sig){
+    if (sig === "p-lobby"){ const el=document.getElementById("presence"); if(el) el.textContent = playerCountText(); }
+    if (sig === "host-lobby") renderJoinedList();
+    if (sig.startsWith("host-q-")) updateHostTally(state.game.current_q);
+  }
+  function playerCountText(){ const n=state.responses.length; return `${n} ${n===1?"person is":"people are"} here`; }
+
+  // ───────────────────────── player screens ─────────────────────────
+  function renderJoin(){
+    app.innerHTML = `<div class="card">
+      <span class="pill">A little goodbye game</span>
+      <h1>How well do you<br>know ${esc(PERSON)}?</h1>
+      <p class="sub">Answer each question the way you think <b>${esc(PERSON)}</b> would.
+        Closest to her real answers wins! <br>(${esc(PERSON)} - just answer honestly)</p>
+      <label for="nm">Your name</label>
+      <input id="nm" type="text" placeholder="e.g. Jonas" autocomplete="off" maxlength="40" value="${esc(state.name)}" />
+      <button id="go" class="btn" disabled>Join the game →</button>
+    </div>`;
+    const nm=document.getElementById("nm"), go=document.getElementById("go");
+    const sync=()=>{ go.disabled = nm.value.trim().length===0; };
+    nm.addEventListener("input", sync); sync(); nm.focus();
+    go.addEventListener("click", join);
+    nm.addEventListener("keydown", e => { if(e.key==="Enter" && nm.value.trim()) join(); });
+    async function join(){
+      state.name = nm.value.trim();
+      sessionStorage.setItem("kyl_name", state.name);
+      go.disabled=true;
+      try { await Store.upsert({ player_id:pid, name:state.name, answers:state.answers }); }
+      catch(e){ console.warn(e); toast("Couldn't join - check connection"); go.disabled=false; return; }
+      state.sig=null; await tick();
+    }
+  }
+
+  function renderPlayerLobby(){
+    app.innerHTML = `<div class="card center">
+      <p class="lead">You're in, ${esc(state.name)}!</p>
+      <p class="sub" id="presence">${playerCountText()}</p>
+      <p class="muted">Waiting for the host to start the game…<br>Keep this page open.</p>
+    </div>`;
+  }
+
+  function renderPlayerQuestion(q){
+    const item = QUESTIONS[q];
+    app.innerHTML = `<div class="card">
+      <div class="qnum">Question ${q+1} of ${N}</div>
+      <div class="qtext">${esc(item.q)}</div>
+      <div id="opts">${item.options.map((o,i)=>`
+        <button class="opt" data-i="${i}">
+          <span class="dot">${String.fromCharCode(65+i)}</span>
+          <span>${esc(o)}</span>
+        </button>`).join("")}</div>
+      <p class="muted center" id="hint" style="margin-top:16px">Tap your guess - you can change it until we move on.</p>
+    </div>`;
+    const paint=()=>document.querySelectorAll("#opts .opt").forEach(b=>{
+      b.classList.toggle("sel", Number(b.dataset.i)===state.answers[q]);
+    });
+    document.querySelectorAll("#opts .opt").forEach(b=>{
+      b.addEventListener("click", async ()=>{
+        state.answers[q]=Number(b.dataset.i); paint();
+        document.getElementById("hint").textContent="Locked in ✓  (you can still change it)";
+        try { await Store.upsert({ player_id:pid, name:state.name, answers:state.answers }); }
+        catch(e){ console.warn(e); toast("Couldn't save - tap again"); }
+      });
+    });
+    paint();
+  }
+
+  function renderPlayerDone(){
+    app.innerHTML = `<div class="card center">
+      <p class="lead">That's a wrap, ${esc(state.name)}!</p>
+      <p class="sub">Thanks for playing. Look at the shared screen -<br>time to find out who knows ${esc(PERSON)} best!</p>
+    </div>`;
+  }
+
+  // ───────────────────────── host screens ─────────────────────────
+  function hostFooter(){
+    return `<span class="smalllink" id="clearLink">↺ Clear everything & restart</span>`;
+  }
+  function wireClear(){
+    const link=document.getElementById("clearLink"); if(!link) return;
+    link.addEventListener("click", async ()=>{
+      if (link.dataset.armed!=="1"){ link.dataset.armed="1"; link.textContent="↺ Click again to wipe ALL data"; setTimeout(()=>{link.dataset.armed="0";link.textContent="↺ Clear everything & restart";},3000); return; }
+      try { await Store.clear(); } catch(e){ toast("Clear failed"); return; }
+      state.revealed=false; state.keyId=null; state.sig=null; await tick();
+    });
+  }
+
+  function renderHostLobby(){
+    app.innerHTML = `<div class="card center">
+      <span class="pill">HOST · your shared screen</span>
+      <h1>How well do you<br>know ${esc(PERSON)}?</h1>
+      <p class="sub">Share the player link, wait for everyone to join, then start.</p>
+      <div id="joined"></div>
+      <button id="start" class="btn">Start game →</button>
+      <div>${hostFooter()}</div>
+    </div>`;
+    renderJoinedList();
+    document.getElementById("start").addEventListener("click", async ()=>{
+      try { await Store.setGame(0); } catch(e){ toast("Couldn't start"); return; }
+      state.sig=null; await tick();
+    });
+    wireClear();
+  }
+  function renderJoinedList(){
+    const box=document.getElementById("joined"); if(!box) return;
+    const n=state.responses.length;
+    box.innerHTML = `<p class="lead">${n} ${n===1?"player":"players"} joined</p>
+      <div class="chips">${state.responses.map(r=>`<span class="chip">${esc(r.name)}</span>`).join("") || '<span class="muted">no one yet…</span>'}</div>`;
+  }
+
+  function renderHostQuestion(q){
+    const item=QUESTIONS[q], last=(q===N-1);
+    app.innerHTML = `<div class="card">
+      <div class="row between">
+        <div class="qnum">Question ${q+1} of ${N}</div>
+        <div class="count" id="answered"></div>
+      </div>
+      <div class="qtext">${esc(item.q)}</div>
+      <div id="opts">${item.options.map((o,i)=>`
+        <div class="opt optdisp" data-i="${i}">
+          <span class="fill" style="width:0%"></span>
+          <span class="lbl"><span><b style="color:var(--accent)">${String.fromCharCode(65+i)}</b>&nbsp; ${esc(o)}</span><span class="count cnt">0</span></span>
+        </div>`).join("")}</div>
+      <button id="next" class="btn">${last?"Finish & reveal":"Next question →"}</button>
+      <div>${hostFooter()}</div>
+    </div>`;
+    updateHostTally(q);
+    document.getElementById("next").addEventListener("click", async ()=>{
+      try { await Store.setGame(q+1); } catch(e){ toast("Couldn't advance"); return; }
+      state.sig=null; await tick();
+    });
+    wireClear();
+  }
+  function updateHostTally(q){
+    const present=state.responses.length;
+    const counts=QUESTIONS[q].options.map((_,i)=>state.responses.filter(r=>r.answers && r.answers[q]===i).length);
+    const a=document.getElementById("answered"); if(a) a.textContent=`${answeredCount(q)} / ${present} answered`;
+    document.querySelectorAll("#opts .optdisp").forEach(el=>{
+      const i=Number(el.dataset.i);
+      el.querySelector(".cnt").textContent=counts[i];
+      el.querySelector(".fill").style.width=(present?Math.round(counts[i]/present*100):0)+"%";
+    });
+  }
+
+  function renderHostFinished(){
+    const players=state.responses;
+    const guess=players.find(r=>r.name.toLowerCase().includes(PERSON.toLowerCase()));
+    if(!state.keyId && guess) state.keyId=guess.player_id;
+    app.innerHTML = `<div class="card center">
+      <p class="lead">Everyone's answered!</p>
+      <p class="sub">Which of these is <b>${esc(PERSON)}</b>? Her answers become the key.</p>
+      <select id="key">
+        <option value="">- pick ${esc(PERSON)} -</option>
+        ${players.map(r=>`<option value="${esc(r.player_id)}" ${r.player_id===state.keyId?"selected":""}>${esc(r.name)}</option>`).join("")}
+      </select>
+      <button id="reveal" class="btn" ${state.keyId?"":"disabled"}>Reveal the winner</button>
+      <div>${hostFooter()}</div>
+    </div>`;
+    const sel=document.getElementById("key"), rv=document.getElementById("reveal");
+    sel.addEventListener("change", ()=>{ state.keyId=sel.value||null; rv.disabled=!state.keyId; });
+    rv.addEventListener("click", ()=>{ if(!state.keyId) return; state.revealed=true; state.sig=null; render(); });
+    wireClear();
+  }
+
+  // ───────────────────────── results ─────────────────────────
+  function renderResults(){
+    const key=state.responses.find(r=>r.player_id===state.keyId);
+    const players=state.responses.filter(r=>r.player_id!==state.keyId);
+    const scoreOf=r=>{ let s=0; for(let i=0;i<N;i++){ if(r.answers&&key.answers&&r.answers[i]!=null&&r.answers[i]===key.answers[i]) s++; } return s; };
+    const board=players.map(r=>({name:r.name, s:scoreOf(r)}))
+      .sort((a,b)=>b.s-a.s || a.name.localeCompare(b.name));
+    const top=board.length?board[0].s:0;
+    const winners=board.filter(b=>b.s===top && top>0).map(b=>b.name);
+
+    const banner = !board.length ? `No guesses to score`
+      : winners.length===0 ? `Tough crowd - nobody matched ${esc(PERSON)}!`
+      : winners.length===1 ? `🏆 <span class="nm">${esc(winners[0])}</span><br>knows ${esc(PERSON)} best!`
+      : `🏆 It's a tie!<br><span class="nm">${winners.map(esc).join(" & ")}</span>`;
+
+    app.innerHTML = `<div class="card">
+      <div class="winbanner">${banner}</div>
+      <div>${board.map((b,idx)=>{
+        const win=b.s===top&&top>0;
+        return `<div class="lb ${win?"win":""}">
+          <span class="rank">${win?"🏆":"#"+(idx+1)}</span>
+          <div style="flex:1">
+            <div class="row between"><span class="nm">${esc(b.name)}</span><span class="sc">${b.s} / ${N}</span></div>
+            <div class="scbarwrap"><div class="scbar" style="width:${Math.round(b.s/N*100)}%"></div></div>
+          </div>
+        </div>`;
+      }).join("") || '<p class="muted center">No players answered.</p>'}</div>
+
+      <div class="keylist">
+        <p class="lead" style="font-size:18px">${esc(PERSON)}'s real answers</p>
+        ${QUESTIONS.map((item,i)=>{
+          const a=key&&key.answers?key.answers[i]:null;
+          return `<div class="keyitem">${esc(item.q)}<br><b>${a!=null?esc(item.options[a]):"-"}</b></div>`;
+        }).join("")}
+      </div>
+      <button id="again" class="btn secondary">↺ Play again (clears answers)</button>
+      <span class="smalllink" id="back">← back to pick a different person</span>
+    </div>`;
+
+    document.getElementById("back").addEventListener("click", ()=>{ state.revealed=false; state.sig=null; render(); });
+    document.getElementById("again").addEventListener("click", async ()=>{
+      try { await Store.clear(); } catch(e){ toast("Couldn't reset"); return; }
+      state.revealed=false; state.keyId=null; state.sig=null; await tick();
+    });
+    celebrate();
+  }
+
+  function celebrate(){
+    if (!window.confetti) return;
+    try {
+      const end=Date.now()+1200;
+      (function frame(){
+        confetti({particleCount:5, angle:60, spread:60, origin:{x:0}});
+        confetti({particleCount:5, angle:120, spread:60, origin:{x:1}});
+        if (Date.now()<end) requestAnimationFrame(frame);
+      })();
+      confetti({particleCount:120, spread:80, origin:{y:.6}});
+    } catch(e){}
+  }
+
+  // ───────────────────────── polling loop ─────────────────────────
+  async function tick(){
+    try {
+      const [game, responses] = await Promise.all([Store.getGame(), Store.list()]);
+      state.game = game; state.responses = responses;
+      if (!isHost){
+        const mine = responses.find(r=>r.player_id===pid);
+        if (game.current_q < 0){
+          // lobby / fresh round: clean slate, and make sure the host sees us
+          if (state.answers.length) state.answers = [];
+          if (state.name && !mine){ try { await Store.upsert({player_id:pid, name:state.name, answers:[]}); } catch(e){} }
+        } else if (mine && mine.answers && state.answers.length===0){
+          state.answers = mine.answers.slice();   // resume after a reload mid-game
+        }
+      }
+      setStatus(true);
+    } catch(e){ console.warn("poll failed", e); setStatus(false); }
+    if (!state.revealed) render();   // freeze the screen once results are up
+    else if (!document.querySelector(".winbanner")) render();
+  }
+  let statusEl=document.getElementById("status");
+  function setStatus(ok){
+    if (LIVE){ statusEl.style.display="none"; return; }
+    statusEl.style.display="block";
+    statusEl.textContent = ok ? "DEMO mode - local only" : "DEMO mode";
+  }
+
+  // first paint + poll every 1.5s
+  render();
+  tick();
+  setInterval(tick, 1500);
+  </script>
+</body>
+</html>
