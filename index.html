@@ -385,9 +385,9 @@
       </div>
       <div class="qtext">${esc(item.q)}</div>
       <div id="opts">${item.options.map((o,i)=>`
-        <div class="opt optdisp" data-i="${i}">
-          <span class="fill" style="width:0%"></span>
-          <span class="lbl"><span><b style="color:var(--accent)">${String.fromCharCode(65+i)}</b>&nbsp; ${esc(o)}</span><span class="count cnt">0</span></span>
+        <div class="opt" data-i="${i}">
+          <span class="dot" style="background:var(--accent);border-color:var(--accent)">${String.fromCharCode(65+i)}</span>
+          <span>${esc(o)}</span>
         </div>`).join("")}</div>
       <button id="next" class="btn">${last?"Finish & reveal":"Next question →"}</button>
       <div>${hostFooter()}</div>
@@ -401,13 +401,7 @@
   }
   function updateHostTally(q){
     const present=state.responses.length;
-    const counts=QUESTIONS[q].options.map((_,i)=>state.responses.filter(r=>r.answers && r.answers[q]===i).length);
     const a=document.getElementById("answered"); if(a) a.textContent=`${answeredCount(q)} / ${present} answered`;
-    document.querySelectorAll("#opts .optdisp").forEach(el=>{
-      const i=Number(el.dataset.i);
-      el.querySelector(".cnt").textContent=counts[i];
-      el.querySelector(".fill").style.width=(present?Math.round(counts[i]/present*100):0)+"%";
-    });
   }
 
   function renderHostFinished(){
